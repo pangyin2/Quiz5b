@@ -1,0 +1,109 @@
+---
+title: "simulation"
+format: pdf
+editor: visual
+---
+```{r}
+install.packages("tidyverse")
+install.packages("lubridate")
+```
+
+```{r}
+# Load necessary libraries
+library(tidyverse)
+library(lubridate)
+
+# Simulate data
+set.seed(42) # For reproducibility
+dates <- seq(as.Date("2024-01-01"), as.Date("2024-04-10"), by="day")
+n <- length(dates)
+
+# Generate approval rating and vote share with initial values and standard deviation for daily change
+approval_rating <- cumsum(rnorm(n, mean=0, sd=5)) / 10
+vote_share <- approval_rating + rnorm(n, mean=0, sd=2) # Somewhat correlated
+
+# Introduce spikes for debates
+debate_dates <- as.Date(c('2024-01-15', '2024-02-15', '2024-03-15'))
+for (date in debate_dates) {
+  idx <- which(dates == date)
+  approval_rating[idx:length(approval_rating)] <- approval_rating[idx:length(approval_rating)] + rnorm(1, 5, 2)
+  vote_share[idx:length(vote_share)] <- vote_share[idx:length(vote_share)] + rnorm(1, 3, 1)
+}
+
+# Normalize to keep within 0-100 range and simulate percentage
+approval_rating <- (approval_rating - min(approval_rating)) / (max(approval_rating) - min(approval_rating)) * 100
+vote_share <- (vote_share - min(vote_share)) / (max(vote_share) - min(vote_share)) * 100
+
+data <- tibble(Date = dates, `Approval Rating (%)` = approval_rating, `Vote Share (%)` = vote_share)
+
+# Plot
+ggplot(data, aes(x = Date)) +
+  geom_line(aes(y = `Approval Rating (%)`, color = "Approval Rating")) +
+  geom_line(aes(y = `Vote Share (%)`, color = "Vote Share")) +
+  geom_vline(xintercept = as.numeric(debate_dates), linetype="dashed", color="green") +
+  scale_color_manual(values = c("Approval Rating" = "blue", "Vote Share" = "red")) +
+  labs(title = "Approval Rating and Vote Share Over Time",
+       y = "Percentage") +
+  theme_minimal()
+
+# Tests
+# Test 1: Check if all values are within 0-100 range
+test1 <- all(data$`Approval Rating (%)` >= 0 & data$`Approval Rating (%)` <= 100) &&
+  all(data$`Vote Share (%)` >= 0 & data$`Vote Share (%)` <= 100)
+
+# Test 2: Check for any missing dates
+test2 <- n == nrow(data)
+
+# Test 3: Check if approval rating and vote share are somewhat correlated
+test3 <- cor(data$`Approval Rating (%)`, data$`Vote Share (%)`) > 0.5
+
+# Test 4: Check for increases on debate dates
+test4 <- map_lgl(debate_dates, ~{
+  idx <- which(data$Date == .x)
+  if (idx > 1) {
+    return(data$`Approval Rating (%)`[idx] > data$`Approval Rating (%)`[idx - 1] &&
+             data$`Vote Share (%)`[idx] > data$`Vote Share (%)`[idx - 1])
+  } else {
+    return(TRUE)
+  }
+})
+
+# Test 5: Check for no negative values
+test5 <- all(data$`Approval Rating (%)` >= 0) && all(data$`Vote Share (%)` >= 0)
+
+list(test1 = test1, test2 = test2, test3 = test3, test4 = all(test4), test5 = test5)
+
+```
+
+```{r}
+library(ggplot2)
+library(lubridate)
+
+# Simulated data - replace this with actual data acquisition steps
+set.seed(42)  # Ensuring reproducibility
+dates <- seq(as.Date('2024-01-01'), as.Date('2024-04-10'), by='day')
+approval_rating <- cumsum(rnorm(length(dates), 0, 0.5)) + 50
+vote_share <- approval_rating + rnorm(length(dates), 0, 2)
+debate_dates <- as.Date(c('2024-01-15', '2024-02-15', '2024-03-15'))
+
+data <- data.frame(Date=dates, ApprovalRating=approval_rating, VoteShare=vote_share)
+
+# Add a column to mark debate dates for visualization
+data$Event <- ifelse(data$Date %in% debate_dates, 'Debate', 'No Event')
+
+# Plotting with ggplot2
+ggplot(data, aes(x=Date)) +
+  geom_line(aes(y=ApprovalRating, colour="Approval Rating")) +
+  geom_line(aes(y=VoteShare, colour="Vote Share")) +
+  geom_vline(xintercept=as.numeric(debate_dates), linetype="dashed", color="green", size=1) +
+  scale_colour_manual("", 
+                      breaks = c("Approval Rating", "Vote Share"),
+                      values = c("Approval Rating"="blue", "Vote Share"="red")) +
+  labs(title="Approval Rating and Vote Share Over Time with Debate Impact",
+       x="Date", y="Percentage (%)") +
+  theme_minimal() +
+  theme(legend.position="bottom")
+```
+
+
+
